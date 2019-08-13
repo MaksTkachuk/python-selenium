@@ -34,3 +34,15 @@ def step_impl(context, metric):
 @When('I deselect "{metric}" metric')
 def step_impl(context, metric):
     context.mainpage.deselect_metric(metric)
+
+@When('I open share dialog')
+def step_impl(context):
+    context.mainpage.open_share_dialog()
+
+@When('I close share dialog')
+def step_impl(context):
+    context.mainpage.close_share_dialog()
+
+@When('I print share link')
+def step_impl(context):
+    print(context.mainpage.get_share_link_value())

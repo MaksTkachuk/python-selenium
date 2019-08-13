@@ -23,9 +23,15 @@ Feature: basic stuff
 #    Then I ensure main page is displayed
 #    When I select "Development" category
 
- Scenario: Select Metric
-    Given I load Santiment stage page
-    Then I ensure main page is displayed
-    When I search for "Ethereum" in graph search bar
-    When I select "Twitter" metric
-    and I deselect "Price" metric
+# Scenario: Select Metric
+#    Given I load Santiment stage page
+#    Then I ensure main page is displayed
+#    When I search for "Ethereum" in graph search bar
+#    When I select "Twitter" metric
+#    and I deselect "Price" metric
+
+Scenario: Select Metric
+   Given I load Santiment stage page
+   Then I ensure main page is displayed
+   When I open share dialog
+   When I print share link
