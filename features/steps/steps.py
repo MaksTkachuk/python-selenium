@@ -45,4 +45,9 @@ def step_impl(context):
 
 @When('I print share link')
 def step_impl(context):
-    print(context.mainpage.get_share_link_value())
+    with open('link.txt', 'w') as f:
+        print(context.mainpage.get_share_link_value(), file= f)
+
+@When('I clear all active metrics')
+def step_impl(context):
+    context.mainpage.clear_all_active_metrics()

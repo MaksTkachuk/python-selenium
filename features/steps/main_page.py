@@ -113,6 +113,7 @@ class Mainpage:
     def get_metric_element(self, metric):
         logging.info("Getting metric element {0}".format(metric))
         xpath = "//button[contains(text(), '{0}')]".format(metric)
+        time.sleep(5)
         return self.get_metrics_list_element().find_element_by_xpath(xpath)
 
     def get_active_metrics_panel_element(self):
@@ -146,42 +147,43 @@ class Mainpage:
         except NoSuchElementException:
             logging.info("Havent found '{0}' in active metrics".format(metric))
 
+    def clear_all_active_metrics(self):
+        for button in self.get_active_metrics_panel_element().find_elements_by_xpath("//button"):
+            button.click()
+            self.wait.until(EC.invisibility_of_element(button))
+
     def get_share_button(self):
         return self.get_page_element().find_element_by_css_selector('button.ShareBtn_btn__aWeOd')
 
     def get_share_dialog(self):
-        selector = 'iframe#intercom-frame'
+        selector = 'div.Dialog_modal__1QXQD.Panel_panel__280Ap'
         return self.driver.find_element_by_css_selector(selector)
 
     def get_share_link_element(self):
         selector = 'input.Input_input__1XjEb.SharePanel_link__input__2bRzG'
-        return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+        return self.get_share_dialog().find_element_by_css_selector(selector)
 
     def get_share_link_value(self):
-        return self.get_share_link_element().get_attribute('readonly value')
+        return self.get_share_link_element().get_attribute('value')
 
     def open_share_dialog(self):
         logging.info("Opening share dialog")
-        selector = 'iframe#intercom-frame'
         try:
             logging.info("Checking if share dialog is open")
-            self.get_share_link_element()
+            self.get_share_dialog()
             logging.info("Share dialog is open, doing nothing")
-        except TimeoutException:
+        except NoSuchElementException:
             logging.info("Share dialog is not open, clicking the button")
             self.get_share_button().click()
             logging.info("Waiting until share dialog is open")
-            self.wait.until(EC.visibility_of(self.get_share_link_element()))
-            logging.info("Switching into iframe")
-            self.driver.switch_to.frame(self.driver.find_element_by_css_selector(selector))
+            self.wait.until(EC.visibility_of(self.get_share_dialog()))
+
 
     def close_share_dialog(self):
         try:
             dialog = self.get_share_dialog()
             close_button = dialog.find_element_by_css_selector('svg.Dialog_close__wPN0y')
-            close.button.click()
-            self.wait.until(EC.invisibility_of_element(self.get_share_link_element()))
-            self.driver.switch_to.default_content()
-            time.sleep(3)
+            close_button.click()
+            self.wait.until(EC.invisibility_of_element(self.get_share_dialog()))
         except NoSuchElementException:
             pass
