@@ -1,1 +1,0 @@
-https://app-stage.santiment.net/?from=2019-02-13T21%3A00%3A00.000Z&interval=1d&metrics=historyPrice,mvrvRatio,socialVolume&slug=bitcoin&title=Bitcoin%20%28BTC%29&to=2019-08-14T21%3A00%3A00.000Z

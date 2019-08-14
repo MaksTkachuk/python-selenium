@@ -5,34 +5,47 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import time
 import logging
+from typing import NamedTuple
+from datetime import datetime
+
+class ActiveMetricData(NamedTuple):
+    name: str
+    active: bool
 
 class Mainpage:
 
     def __init__(self, driver):
+        self.default_url = 'https://app-stage.santiment.net/?from=2019-02-13T21%3A00%3A00.000Z&interval=1d&metrics=historyPrice&slug=bitcoin&title=Bitcoin%20%28BTC%29&to=2019-08-14T21%3A00%3A00.000Z'
         self.driver = driver
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 3)
         self.metrics = {
-        "Price": "Financial",
-        "Volume": "Financial",
-        "Development Activity": "Development",
-        "Twitter": "Social",
-        "Social Volume": "Social",
-        "Social Dominance": "Social",
-        "Daily Active Deposits": "On-chain",
-        "Exchange Flow Balance": "On-chain",
-        "Eth Spent Over Time": "On-chain",
-        "In Top Holders Total": "On-chain",
-        "Percent of Token Supply on Exchanges": "On-chain",
-        "Realized Value": "On-chain",
-        "Market Value To Realized Value": "On-chain",
-        "NVT Ratio Transaction Volume": "On-chain",
-        "Network Growth": "On-chain",
-        "Daily Active Addresses": "On-chain",
-        "Token Age Consumed": "On-chain",
-        "Token Velocity": "On-chain",
-        "Transaction Volume": "On-chain",
-        "Token Circulation": "On-chain"
+        "Price": ("Financial", "historyPrice"),
+        "Volume": ("Financial", "volume"),
+        "Development Activity": ("Development", "devActivity"),
+        "Twitter": ("Social", "historyTwitterData"),
+        "Social Volume": ("Social", "socialVolume"),
+        "Social Dominance": ("Social", "socialDominance"),
+        "Daily Active Deposits": ("On-chain",),
+        "Exchange Flow Balance": ("On-chain", "exchangeFundsFlow"),
+        "Eth Spent Over Time": ("On-chain", "ethSpentOverTime"),
+        "In Top Holders Total": ("On-chain", "topHoldersPercentOfTotalSupply"),
+        "Percent of Token Supply on Exchanges": ("On-chain", "percentOfTokenSupplyOnExchanges"),
+        "Realized Value": ("On-chain", "realizedValue"),
+        "Market Value To Realized Value": ("On-chain", "mvrvRatio"),
+        "NVT Ratio Circulation": ("On-chain", "nvtRatioCirculation"),
+        "NVT Ratio Transaction Volume": ("On-chain", "nvtRatioTxVolume"),
+        "Network Growth": ("On-chain", "networkGrowth"),
+        "Daily Active Addresses": ("On-chain", "dailyActiveAddresses"),
+        "Token Age Consumed": ("On-chain", "tokenAgeConsumed"),
+        "Token Velocity": ("On-chain", "tokenVelocity"),
+        "Transaction Volume": ("On-chain", "transactionVolume"),
+        "Token Circulation": ("On-chain", "tokenCirculation")
         }
+        self.state = {
+        "active_metrics": [ActiveMetricData('Price', True)],
+        "token": "Bitcoin"
+        }
+        self.driver.get(self.default_url)
 
     def close_cookie_popup(self):
         xpath = "//button[text()='Accept']"
@@ -69,6 +82,7 @@ class Mainpage:
         self.get_search_result_element(text).click()
         xpath = "//button[contains(@class, SearchWithSuggestions_suggestion__AqZNi)]//span[text()='{0}']/././.".format(text)
         self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
+        self.state['token'] = text
 
     def get_period_selector_element(self, period):
         logging.info("Getting period selector for {0}".format(period))
@@ -126,31 +140,32 @@ class Mainpage:
         return self.get_active_metrics_panel_element().find_element_by_xpath(xpath)
 
     def select_metric(self, metric):
-        logging.info("Selecting metric {0}".format(metric))
-        try:
-            logging.info("Looking for '{0}' in active metrics".format(metric))
-            self.get_active_metric_element(metric)
-        except NoSuchElementException:
-            logging.info("Havent found '{0}' in active metrics, opening it".format(metric))
-            self.select_metrics_category(self.metrics[metric])
-            self.get_metric_element(metric).click()
-            self.wait.until(EC.visibility_of(self.get_active_metric_element(metric)))
+        if not metric in [x.name for x in self.state['active_metrics']]:
+            self.select_metrics_category(self.metrics[metric][0])
+            metric_element = self.get_metric_element(metric)
+            metric_element.click()
+            try:
+                self.wait.until(EC.visibility_of(self.get_active_metric_element(metric)))
+                self.state['active_metrics'].append(ActiveMetricData(metric, True))
+            except TimeoutException:
+                xpath = "//span[text()='no data']"
+                metric_element.find_element_by_xpath(xpath)
+                self.state['active_metrics'].append(ActiveMetricData(metric, False))
+
 
     def deselect_metric(self, metric):
-        logging.info("Deselecting metric {0}".format(metric))
-        try:
-            logging.info("Looking for '{0}' in active metrics".format(metric))
+        logging.info("Trying to deselect {0} metric".format(metric))
+        if ActiveMetricData(metric, True) in self.state['active_metrics']:
             active_metric = self.get_active_metric_element(metric)
-            logging.info("Found '{0}' in active metrics, closing it".format(metric))
             active_metric.click()
-            self.wait.until(EC.invisibility_of_element(self.get_active_metric_element(metric)))
-        except NoSuchElementException:
-            logging.info("Havent found '{0}' in active metrics".format(metric))
+            self.wait.until(EC.invisibility_of_element(active_metric))
+            self.state['active_metrics'].remove(ActiveMetricData(metric, True))
 
     def clear_all_active_metrics(self):
-        for button in self.get_active_metrics_panel_element().find_elements_by_xpath("//button"):
-            button.click()
-            self.wait.until(EC.invisibility_of_element(button))
+        logging.info("{0} active metrics to remove".format(len(self.state['active_metrics'])))
+        for metric in self.state['active_metrics']:
+            self.deselect_metric(metric.name)
+        logging.info("{0} metrics left after removal".format(len(self.state['active_metrics'])))
 
     def get_share_button(self):
         return self.get_page_element().find_element_by_css_selector('button.ShareBtn_btn__aWeOd')
@@ -187,3 +202,17 @@ class Mainpage:
             self.wait.until(EC.invisibility_of_element(self.get_share_dialog()))
         except NoSuchElementException:
             pass
+
+    def get_graph_title(self):
+        return self.get_page_element().find_element_by_css_selector('div.ChartPage_title__fLVYV').text
+
+    def get_from_to_dates(self):
+        [date_from_text, date_to_text] = self.get_page_element().find_element_by_css_selector('button.CalendarBtn_btn__2WS5X').text.split('-')
+        datetime_from = datetime.strptime(date_from_text.strip(), '%d.%m.%y')
+        datetime_to = datetime.strptime(date_to_text.strip(), '%d.%m.%y')
+        date_from_converted = datetime.strftime(datetime_from, '%Y-%m-%dT21:00:00.000Z')
+        date_to_converted = datetime.strftime(datetime_to, '%Y-%m-%dT21:00:00.000Z')
+        return date_from_converted, date_to_converted
+
+    def get_interval(self):
+        return self.get_page_element().find_element_by_css_selector('div.Dropdown_wrapper__2SIQh.IntervalSelector_wrapper__3_304').text
