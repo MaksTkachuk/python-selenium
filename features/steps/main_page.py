@@ -53,9 +53,20 @@ class Mainpage:
         try:
             button = self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
             button.click()
+            self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
         except TimeoutException:
             logging.info("Already closed")
-        self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
+        logging.info("Closed successfully")
+
+    def close_explore_popup(self):
+        xpath = "//button[text()='Dismiss']"
+        logging.info("Trying to close explore assets popup")
+        try:
+            button = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.XPATH, xpath)))
+            button.click()
+            self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
+        except TimeoutException:
+            logging.info("Already closed")
         logging.info("Closed successfully")
 
     def get_page_element(self):

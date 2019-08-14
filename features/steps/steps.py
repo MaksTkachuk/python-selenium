@@ -6,6 +6,7 @@ import urllib.parse as urlparse
 def step_impl(context):
     context.mainpage = Mainpage(context.browser)
     context.mainpage.close_cookie_popup()
+    context.mainpage.close_explore_popup()
 
 @Then('page title is "{title}"')
 def step_impl(context, title):

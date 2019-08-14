@@ -50,8 +50,15 @@ Feature: basic stuff
 #    Then I ensure main page is displayed
 
 
- Scenario: Select Metric New
+ Scenario Outline: Verify Link
     Given I load Santiment stage page
+    When I search for "<token>" in graph search bar
+    When I select "1m" period
     When I select "Development Activity" metric
     When I select "Volume" metric
     Then I verify that share link contains correct data
+Examples:
+| token |
+| Bitcoin |
+| Litecoin |
+| Cardano |
