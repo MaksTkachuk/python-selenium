@@ -1,18 +1,50 @@
-from behave import fixture, use_fixture
 from selenium import webdriver
-import sys, os
+from browserstack.local import Local
+import os, json
 
-chromedriver_path = os.path.realpath(os.path.join(os.getcwd(), '..', 'bin', 'chromedriver'))
+CONFIG_FILE = os.environ['CONFIG_FILE'] if 'CONFIG_FILE' in os.environ else r'..\config\single.json'
+TASK_ID = int(os.environ['TASK_ID']) if 'TASK_ID' in os.environ else 0
 
-@fixture
-def selenium_browser_chrome(context):
-    if chromedriver_path not in os.environ["PATH"]:
-        os.environ["PATH"] += os.pathsep + chromedriver_path
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    context.browser = webdriver.Chrome(chrome_options=options)
-    yield context.browser
+with open(CONFIG_FILE) as data_file:
+    CONFIG = json.load(data_file)
+
+bs_local = None
+
+BROWSERSTACK_USERNAME = os.environ['BROWSERSTACK_USERNAME'] if 'BROWSERSTACK_USERNAME' in os.environ else CONFIG['user']
+BROWSERSTACK_ACCESS_KEY = os.environ['BROWSERSTACK_ACCESS_KEY'] if 'BROWSERSTACK_ACCESS_KEY' in os.environ else CONFIG['key']
+
+def start_local():
+    """Code to start browserstack local before start of test."""
+    global bs_local
+    bs_local = Local()
+    bs_local_args = { "key": BROWSERSTACK_ACCESS_KEY, "forcelocal": "true" }
+    bs_local.start(**bs_local_args)
+
+def stop_local():
+    """Code to stop browserstack local after end of test."""
+    global bs_local
+    if bs_local is not None:
+        bs_local.stop()
+
+
+def before_feature(context, feature):
+    desired_capabilities = CONFIG['environments'][TASK_ID]
+
+    for key in CONFIG["capabilities"]:
+        if key not in desired_capabilities:
+            desired_capabilities[key] = CONFIG["capabilities"][key]
+
+    if 'BROWSERSTACK_APP_ID' in os.environ:
+        desired_capabilities['app'] = os.environ['BROWSERSTACK_APP_ID']
+
+    if "browserstack.local" in desired_capabilities and desired_capabilities["browserstack.local"]:
+        start_local()
+
+    context.browser = webdriver.Remote(
+        desired_capabilities=desired_capabilities,
+        command_executor="http://%s:%s@%s/wd/hub" % (BROWSERSTACK_USERNAME, BROWSERSTACK_ACCESS_KEY, CONFIG['server'])
+    )
+
+def after_feature(context, feature):
     context.browser.quit()
-
-def before_all(context):
-    use_fixture(selenium_browser_chrome, context)
+    stop_local()
