@@ -16,6 +16,25 @@ class ActiveMetricData(NamedTuple):
 class MaxAttemptsLimitException(Exception):
     pass
 
+class MissingCategoryException(Exception):
+    pass
+
+class MissingMetricException(Exception):
+    pass
+
+class ClickError(Exception):
+    pass
+
+def safe_click(element):
+    attempts = 0
+    while attempts < 5:
+        try:
+            element.click()
+            return
+        except StaleElementReferenceException:
+            attempts += 1
+    raise ClickError("Exceeded max click attempts limit on element {0}".format(element))
+
 class Mainpage:
 
     def __init__(self, driver):
@@ -30,7 +49,7 @@ class Mainpage:
     def navigate_to_main_page(self):
         attempts = 0
         xpath = "//button[contains(text(), 'Financial') and contains(@class, 'ChartMetricSelector_btn__1PClN')]"
-        while (True and attempts < 5):
+        while attempts < 5:
             try:
                 self.driver.get(self.default_url)
                 self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
@@ -44,7 +63,7 @@ class Mainpage:
         logging.info("Trying to close cookie popup")
         try:
             button = self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
-            button.click()
+            safe_click(button)
             self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
         except TimeoutException:
             logging.info("Already closed")
@@ -55,7 +74,7 @@ class Mainpage:
         logging.info("Trying to close explore assets popup")
         try:
             button = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.XPATH, xpath)))
-            button.click()
+            safe_click(button)
             self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
         except TimeoutException:
             logging.info("Already closed")
@@ -83,7 +102,7 @@ class Mainpage:
         logging.info("Searching for '{0}'".format(text))
         search_input_element = self.get_search_input_element()
         search_input_element.send_keys(text)
-        self.get_search_result_element(text).click()
+        safe_click(self.get_search_result_element(text))
         xpath = xpaths["search_result"].format(text)
         self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
         self.state['token'] = text
@@ -96,11 +115,8 @@ class Mainpage:
     def select_period(self, period):
         logging.info("Selecting period {0}".format(period))
         xpath = xpaths["period_selector_active"].format(period)
-        try:
-            self.get_page_element().find_element_by_xpath(xpath)
-        except NoSuchElementException:
-            self.get_period_selector_element(period).click()
-            self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
+        safe_click(self.get_period_selector_element(period))
+        self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
 
     def get_metrics_container_element(self):
         selector = selectors["metrics_container"]
@@ -117,16 +133,13 @@ class Mainpage:
 
     def select_metrics_category(self, category):
         logging.info("Selecting metrics category {0}".format(category))
-        xpath = xpaths["metrics_category_active"].format(category)
+        xpath_active = xpaths["metrics_category"].format(category)
         try:
-            logging.info("Checking if metrics category {0} is active".format(category))
-            self.get_page_element().find_element_by_xpath(xpath)
-            logging.info("Metrics category {0} is active, doing nothing".format(category))
-        except NoSuchElementException:
-            logging.info("Metrics category {0} is not active, opening it".format(category))
-            self.get_metrics_category_element(category).click()
-            logging.info("Waiting until metrics category {0} becomes active".format(category))
-            self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
+            safe_click(self.get_metrics_category_element(category))
+        except TimeoutException:
+            raise MissingCategoryException("Category {0} not found for the selected token".format(category))
+        self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath_active)))
+
 
     def get_metrics_list_element(self):
         selector = selectors["metrics_list"]
@@ -135,7 +148,10 @@ class Mainpage:
     def get_metric_element(self, metric):
         logging.info("Getting metric element {0}".format(metric))
         xpath = xpaths["metric"].format(metric)
-        return self.get_metrics_list_element().find_element_by_xpath(xpath)
+        try:
+            return self.get_metrics_list_element().find_element_by_xpath(xpath)
+        except NoSuchElementException:
+            raise MissingMetricException("Metric {0} not found for the selected token".format(metric))
 
     def get_active_metrics_panel_element(self):
         selector = selectors["active_metrics_panel"]
@@ -149,9 +165,17 @@ class Mainpage:
     def select_metric(self, metric):
         if not metric in [x.name for x in self.state['active_metrics']]:
             xpath = xpaths["active_metric"].format(metric)
-            self.select_metrics_category(metrics[metric][0])
-            metric_element = self.get_metric_element(metric)
-            metric_element.click()
+            try:
+                self.select_metrics_category(metrics[metric][0])
+            except MissingCategoryException:
+                logging.info("No such category for the selected token")
+                return
+            try:
+                metric_element = self.get_metric_element(metric)
+                safe_click(metric_element)
+            except MissingMetricException:
+                logging.info("No such metric for the selected token")
+                return
             try:
                 self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
                 self.state['active_metrics'].append(ActiveMetricData(metric, True))
@@ -165,7 +189,7 @@ class Mainpage:
         logging.info("Trying to deselect {0} metric".format(metric))
         if ActiveMetricData(metric, True) in self.state['active_metrics']:
             active_metric = self.get_active_metric_element(metric)
-            active_metric.click()
+            safe_click(active_metric)
             self.wait.until(EC.invisibility_of_element(active_metric))
             self.state['active_metrics'].remove(ActiveMetricData(metric, True))
 
@@ -198,7 +222,7 @@ class Mainpage:
             logging.info("Share dialog is open, doing nothing")
         except NoSuchElementException:
             logging.info("Share dialog is not open, clicking the button")
-            self.get_share_button().click()
+            safe_click(self.get_share_button())
             logging.info("Waiting until share dialog is open")
             self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
 
@@ -208,7 +232,7 @@ class Mainpage:
         try:
             dialog = self.get_share_dialog()
             close_button = dialog.find_element_by_css_selector(selector)
-            close_button.click()
+            safe_click(close_button)
             self.wait.until(EC.invisibility_of_element(dialog))
         except NoSuchElementException:
             pass
