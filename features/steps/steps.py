@@ -3,6 +3,7 @@ from main_page import Mainpage, ActiveMetricData
 import urllib.parse as urlparse
 from datetime import datetime, timedelta
 from datastorage import *
+import time
 
 @Given('I load Santiment stage page')
 def step_impl(context):
@@ -78,3 +79,7 @@ def step_impl(context):
     assert interval_page == interval_link
     assert date_from_page_converted == date_from_link
     assert date_to_page_converted == date_to_link
+
+@When('I wait for "{sec}" seconds')
+def step_impl(context, sec):
+    time.sleep(int(sec))

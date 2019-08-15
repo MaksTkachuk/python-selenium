@@ -54,18 +54,21 @@ Feature: basic stuff
     Given I load Santiment stage page
     When I search for "<token>" in graph search bar
     When I select "1m" period
+    When I select "Price" metric
     When I select "Development Activity" metric
     When I select "Volume" metric
+    When I deselect "Development Activity" metric
+    When I deselect "Twitter" metric
     Then I verify that share link contains correct data
 Examples:
 | token |
-#| Bitcoin |
-#| Litecoin |
-#| Cardano |
-#| Ripple |
-#| ChainLink |
-#| Santiment |
-#| Stellar |
+| bitcoin |
+| Litecoin |
+| Cardano |
+| Ripple |
+| ChainLink |
+| santiment |
+| Stellar |
 | Tezos |
 | Binance Coin |
-#| TRON |
+| TRON |

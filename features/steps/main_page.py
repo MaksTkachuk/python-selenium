@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import *
 import time
 import logging
 from typing import NamedTuple
@@ -43,12 +43,11 @@ class Mainpage:
         self.wait = WebDriverWait(self.driver, 3)
         self.state = {
         "active_metrics": [ActiveMetricData('Price', True)],
-        "token": "Bitcoin"
         }
 
     def navigate_to_main_page(self):
         attempts = 0
-        xpath = "//button[contains(text(), 'Financial') and contains(@class, 'ChartMetricSelector_btn__1PClN')]"
+        xpath = xpaths["metrics_category"].format("Financial")
         while attempts < 5:
             try:
                 self.driver.get(self.default_url)
@@ -94,9 +93,11 @@ class Mainpage:
 
     def get_search_result_element(self, text):
         logging.info("Getting search result for '{0}'".format(text))
-        xpath = xpaths["search_result"].format(text)
-        search_result_element = self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
-        return search_result_element
+        xpath = xpaths["search_result"]
+        search_result_elements = self.wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath)))
+        for element in search_result_elements:
+            if text.lower() in element.text.lower():
+                    return element
 
     def search(self, text):
         logging.info("Searching for '{0}'".format(text))
@@ -105,7 +106,6 @@ class Mainpage:
         safe_click(self.get_search_result_element(text))
         xpath = xpaths["search_result"].format(text)
         self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
-        self.state['token'] = text
 
     def get_period_selector_element(self, period):
         logging.info("Getting period selector for {0}".format(period))

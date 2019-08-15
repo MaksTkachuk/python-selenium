@@ -26,7 +26,7 @@ xpaths = {
 "close_cookies_button": "//button[text()='Accept']",
 "close_assets_button": "//button[text()='Dismiss']",
 "page_element": """//div[@class="ChartPage_wrapper__805jp"]""",
-"search_result": "//button[contains(@class, SearchWithSuggestions_suggestion__AqZNi)]//span[contains(text(), '{0}')]/././.",
+"search_result": """//button[contains(@class, SearchWithSuggestions_suggestion__AqZNi)]//span[@class="SearchContainer_name__3fYwt"]""",
 "period_selector": "//div[contains(@class, 'ChartPage_ranges__3h7wX')]//div[text()='{0}']",
 "period_selector_active": "//div[contains(@class, 'Selector_selected__2rsUx') and text()='{0}']",
 "metrics_category": "//button[contains(text(), '{0}') and contains(@class, 'ChartMetricSelector_btn__1PClN')]",
