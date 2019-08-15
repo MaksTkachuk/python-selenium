@@ -59,6 +59,13 @@ Feature: basic stuff
     Then I verify that share link contains correct data
 Examples:
 | token |
-| Bitcoin |
-| Litecoin |
-| Cardano |
+#| Bitcoin |
+#| Litecoin |
+#| Cardano |
+#| Ripple |
+#| ChainLink |
+#| Santiment |
+#| Stellar |
+| Tezos |
+| Binance Coin |
+#| TRON |

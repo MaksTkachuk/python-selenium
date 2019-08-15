@@ -7,10 +7,14 @@ import time
 import logging
 from typing import NamedTuple
 from datetime import datetime
+from datastorage import *
 
 class ActiveMetricData(NamedTuple):
     name: str
     active: bool
+
+class MaxAttemptsLimitException(Exception):
+    pass
 
 class Mainpage:
 
@@ -18,37 +22,25 @@ class Mainpage:
         self.default_url = 'https://app-stage.santiment.net/?from=2019-02-13T21%3A00%3A00.000Z&interval=1d&metrics=historyPrice&slug=bitcoin&title=Bitcoin%20%28BTC%29&to=2019-08-14T21%3A00%3A00.000Z'
         self.driver = driver
         self.wait = WebDriverWait(self.driver, 3)
-        self.metrics = {
-        "Price": ("Financial", "historyPrice"),
-        "Volume": ("Financial", "volume"),
-        "Development Activity": ("Development", "devActivity"),
-        "Twitter": ("Social", "historyTwitterData"),
-        "Social Volume": ("Social", "socialVolume"),
-        "Social Dominance": ("Social", "socialDominance"),
-        "Daily Active Deposits": ("On-chain",),
-        "Exchange Flow Balance": ("On-chain", "exchangeFundsFlow"),
-        "Eth Spent Over Time": ("On-chain", "ethSpentOverTime"),
-        "In Top Holders Total": ("On-chain", "topHoldersPercentOfTotalSupply"),
-        "Percent of Token Supply on Exchanges": ("On-chain", "percentOfTokenSupplyOnExchanges"),
-        "Realized Value": ("On-chain", "realizedValue"),
-        "Market Value To Realized Value": ("On-chain", "mvrvRatio"),
-        "NVT Ratio Circulation": ("On-chain", "nvtRatioCirculation"),
-        "NVT Ratio Transaction Volume": ("On-chain", "nvtRatioTxVolume"),
-        "Network Growth": ("On-chain", "networkGrowth"),
-        "Daily Active Addresses": ("On-chain", "dailyActiveAddresses"),
-        "Token Age Consumed": ("On-chain", "tokenAgeConsumed"),
-        "Token Velocity": ("On-chain", "tokenVelocity"),
-        "Transaction Volume": ("On-chain", "transactionVolume"),
-        "Token Circulation": ("On-chain", "tokenCirculation")
-        }
         self.state = {
         "active_metrics": [ActiveMetricData('Price', True)],
         "token": "Bitcoin"
         }
-        self.driver.get(self.default_url)
+
+    def navigate_to_main_page(self):
+        attempts = 0
+        xpath = "//button[contains(text(), 'Financial') and contains(@class, 'ChartMetricSelector_btn__1PClN')]"
+        while (True and attempts < 5):
+            try:
+                self.driver.get(self.default_url)
+                self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
+                return
+            except TimeoutException:
+                attempts += 1
+        raise MaxAttemptsLimitException("Exceeded max attempts limit trying to load main page")
 
     def close_cookie_popup(self):
-        xpath = "//button[text()='Accept']"
+        xpath = xpaths["close_cookies_button"]
         logging.info("Trying to close cookie popup")
         try:
             button = self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
@@ -59,7 +51,7 @@ class Mainpage:
         logging.info("Closed successfully")
 
     def close_explore_popup(self):
-        xpath = "//button[text()='Dismiss']"
+        xpath = xpaths["close_assets_button"]
         logging.info("Trying to close explore assets popup")
         try:
             button = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.XPATH, xpath)))
@@ -70,57 +62,62 @@ class Mainpage:
         logging.info("Closed successfully")
 
     def get_page_element(self):
-        return self.driver.find_element_by_css_selector('div#root div.ChartPage_tool__2vx_W')
+        xpath = xpaths["page_element"]
+        return self.driver.find_element_by_xpath(xpath)
 
     def get_search_wrapper_element(self):
-        return self.get_page_element().find_element_by_css_selector('div.SearchWithSuggestions_wrapper__3BM6h')
+        selector = selectors["search_wrapper"]
+        return self.get_page_element().find_element_by_css_selector(selector)
 
     def get_search_input_element(self):
-        logging.info("Getting search input")
-        return self.get_search_wrapper_element().find_element_by_css_selector('input')
+        selector = selectors["search_input"]
+        return self.get_search_wrapper_element().find_element_by_css_selector(selector)
 
     def get_search_result_element(self, text):
         logging.info("Getting search result for '{0}'".format(text))
-        search_wrapper_element = self.get_search_wrapper_element()
-        search_input_element = self.get_search_input_element()
-        search_input_element.send_keys(text)
-        xpath = "//button[contains(@class, SearchWithSuggestions_suggestion__AqZNi)]//span[text()='{0}']/././.".format(text)
+        xpath = xpaths["search_result"].format(text)
         search_result_element = self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
         return search_result_element
 
     def search(self, text):
         logging.info("Searching for '{0}'".format(text))
+        search_input_element = self.get_search_input_element()
+        search_input_element.send_keys(text)
         self.get_search_result_element(text).click()
-        xpath = "//button[contains(@class, SearchWithSuggestions_suggestion__AqZNi)]//span[text()='{0}']/././.".format(text)
+        xpath = xpaths["search_result"].format(text)
         self.wait.until(EC.invisibility_of_element_located((By.XPATH, xpath)))
         self.state['token'] = text
 
     def get_period_selector_element(self, period):
         logging.info("Getting period selector for {0}".format(period))
-        xpath = "//div[contains(@class, 'ChartPage_ranges__3h7wX')]//div[text()='{0}']".format(period)
+        xpath = xpaths["period_selector"].format(period)
         return self.get_page_element().find_element_by_xpath(xpath)
 
     def select_period(self, period):
         logging.info("Selecting period {0}".format(period))
-        xpath = "//div[contains(@class, 'Selector_selected__2rsUx') and text()='{0}']".format(period)
-        if len(self.get_page_element().find_elements_by_xpath(xpath)) == 0:
+        xpath = xpaths["period_selector_active"].format(period)
+        try:
+            self.get_page_element().find_element_by_xpath(xpath)
+        except NoSuchElementException:
             self.get_period_selector_element(period).click()
             self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
 
     def get_metrics_container_element(self):
-        return self.get_page_element().find_element_by_css_selector('div.ChartPage_container__2avm9.ChartPage_container_bottom__3Cwyv')
+        selector = selectors["metrics_container"]
+        return self.get_page_element().find_element_by_css_selector(selector)
 
     def get_metrics_categories_element(self):
-        return self.get_metrics_container_element().find_element_by_css_selector('div.ChartMetricSelector_column__2SqCU.ChartMetricSelector_categories__uBPiA')
+        selector = selectors["metrics_categories"]
+        return self.get_metrics_container_element().find_element_by_css_selector(selector)
 
     def get_metrics_category_element(self, category):
         logging.info("Getting metrics category element {0}".format(category))
-        xpath = "//button[contains(text(), '{0}') and contains(@class, 'ChartMetricSelector_btn__1PClN')]".format(category)
+        xpath = xpaths["metrics_category"].format(category)
         return self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
 
     def select_metrics_category(self, category):
         logging.info("Selecting metrics category {0}".format(category))
-        xpath = "//button[contains(text(), '{0}') and contains(@class, 'Button_active__3FPKU')]".format(category)
+        xpath = xpaths["metrics_category_active"].format(category)
         try:
             logging.info("Checking if metrics category {0} is active".format(category))
             self.get_page_element().find_element_by_xpath(xpath)
@@ -132,34 +129,34 @@ class Mainpage:
             self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
 
     def get_metrics_list_element(self):
-        selector = 'div.ChartMetricSelector_group__FhAJt'
+        selector = selectors["metrics_list"]
         return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
 
     def get_metric_element(self, metric):
         logging.info("Getting metric element {0}".format(metric))
-        xpath = "//button[contains(text(), '{0}')]".format(metric)
-        time.sleep(5)
+        xpath = xpaths["metric"].format(metric)
         return self.get_metrics_list_element().find_element_by_xpath(xpath)
 
     def get_active_metrics_panel_element(self):
-        selector = 'section.ChartActiveMetrics_wrapper__3Z0I8'
+        selector = selectors["active_metrics_panel"]
         return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
 
     def get_active_metric_element(self, metric):
         logging.info("Getting active metric element {0}".format(metric))
-        xpath = "//button[contains(text(), '{0}')]".format(metric)
+        xpath = xpaths["active_metric"].format(metric)
         return self.get_active_metrics_panel_element().find_element_by_xpath(xpath)
 
     def select_metric(self, metric):
         if not metric in [x.name for x in self.state['active_metrics']]:
-            self.select_metrics_category(self.metrics[metric][0])
+            xpath = xpaths["active_metric"].format(metric)
+            self.select_metrics_category(metrics[metric][0])
             metric_element = self.get_metric_element(metric)
             metric_element.click()
             try:
-                self.wait.until(EC.visibility_of(self.get_active_metric_element(metric)))
+                self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
                 self.state['active_metrics'].append(ActiveMetricData(metric, True))
             except TimeoutException:
-                xpath = "//span[text()='no data']"
+                xpath = xpaths["inactive_metric"]
                 metric_element.find_element_by_xpath(xpath)
                 self.state['active_metrics'].append(ActiveMetricData(metric, False))
 
@@ -182,11 +179,11 @@ class Mainpage:
         return self.get_page_element().find_element_by_css_selector('button.ShareBtn_btn__aWeOd')
 
     def get_share_dialog(self):
-        selector = 'div.Dialog_modal__1QXQD.Panel_panel__280Ap'
+        selector = selectors["share_dialog"]
         return self.driver.find_element_by_css_selector(selector)
 
     def get_share_link_element(self):
-        selector = 'input.Input_input__1XjEb.SharePanel_link__input__2bRzG'
+        selector = selectors["share_link"]
         return self.get_share_dialog().find_element_by_css_selector(selector)
 
     def get_share_link_value(self):
@@ -194,6 +191,7 @@ class Mainpage:
 
     def open_share_dialog(self):
         logging.info("Opening share dialog")
+        selector = selectors["share_dialog"]
         try:
             logging.info("Checking if share dialog is open")
             self.get_share_dialog()
@@ -202,28 +200,30 @@ class Mainpage:
             logging.info("Share dialog is not open, clicking the button")
             self.get_share_button().click()
             logging.info("Waiting until share dialog is open")
-            self.wait.until(EC.visibility_of(self.get_share_dialog()))
+            self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
 
 
     def close_share_dialog(self):
+        selector = selectors["close_share_dialog"]
         try:
             dialog = self.get_share_dialog()
-            close_button = dialog.find_element_by_css_selector('svg.Dialog_close__wPN0y')
+            close_button = dialog.find_element_by_css_selector(selector)
             close_button.click()
-            self.wait.until(EC.invisibility_of_element(self.get_share_dialog()))
+            self.wait.until(EC.invisibility_of_element(dialog))
         except NoSuchElementException:
             pass
 
     def get_graph_title(self):
-        return self.get_page_element().find_element_by_css_selector('div.ChartPage_title__fLVYV').text
+        selector = selectors["graph_title"]
+        return self.get_page_element().find_element_by_css_selector(selector).text
 
     def get_from_to_dates(self):
-        [date_from_text, date_to_text] = self.get_page_element().find_element_by_css_selector('button.CalendarBtn_btn__2WS5X').text.split('-')
+        selector = selectors["calendar_dates"]
+        [date_from_text, date_to_text] = self.get_page_element().find_element_by_css_selector(selector).text.split('-')
         datetime_from = datetime.strptime(date_from_text.strip(), '%d.%m.%y')
         datetime_to = datetime.strptime(date_to_text.strip(), '%d.%m.%y')
-        date_from_converted = datetime.strftime(datetime_from, '%Y-%m-%dT21:00:00.000Z')
-        date_to_converted = datetime.strftime(datetime_to, '%Y-%m-%dT21:00:00.000Z')
-        return date_from_converted, date_to_converted
+        return datetime_from, datetime_to
 
     def get_interval(self):
-        return self.get_page_element().find_element_by_css_selector('div.Dropdown_wrapper__2SIQh.IntervalSelector_wrapper__3_304').text
+        selector = selectors["interval"]
+        return self.get_page_element().find_element_by_css_selector(selector).text

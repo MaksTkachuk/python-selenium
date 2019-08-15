@@ -1,10 +1,13 @@
 from behave import *
 from main_page import Mainpage, ActiveMetricData
 import urllib.parse as urlparse
+from datetime import datetime, timedelta
+from datastorage import *
 
 @Given('I load Santiment stage page')
 def step_impl(context):
     context.mainpage = Mainpage(context.browser)
+    context.mainpage.navigate_to_main_page()
     context.mainpage.close_cookie_popup()
     context.mainpage.close_explore_popup()
 
@@ -57,17 +60,21 @@ def step_impl(context):
     netloc = parsed.netloc
     params = urlparse.parse_qs(parsed.query)
     metrics_link = params['metrics'][0].split(',')
-    metrics_page = [context.mainpage.metrics[metric.name][1] for metric in context.mainpage.state['active_metrics']]
+    metrics_page = [metrics[metric.name][1] for metric in context.mainpage.state['active_metrics']]
     title_page = context.mainpage.get_graph_title()
     title_link = params['title'][0]
     date_from_page, date_to_page = context.mainpage.get_from_to_dates()
-    date_from_link = params['from'][0]
-    date_to_link = params['to'][0]
+    date_from_page_corrected = date_from_page - timedelta(days=1)
+    date_to_page_corrected = date_to_page - timedelta(days=1)
+    date_from_page_converted = datetime.strftime(date_from_page_corrected, '%Y-%m-%d')
+    date_to_page_converted = datetime.strftime(date_to_page_corrected, '%Y-%m-%d')
+    date_from_link = params['from'][0].split('T')[0]
+    date_to_link = params['to'][0].split('T')[0]
     interval_page = context.mainpage.get_interval()
     interval_link = params['interval'][0]
     assert netloc == 'app-stage.santiment.net'
     assert sorted(metrics_link) == sorted(metrics_page)
     assert title_page == title_link
     assert interval_page == interval_link
-#    assert date_from_page == date_from_link
-#    assert date_to_page == date_to_link
+    assert date_from_page_converted == date_from_link
+    assert date_to_page_converted == date_to_link
