@@ -1,7 +1,8 @@
 from behave import *
-from main_page import Mainpage, ActiveMetricData
+from main_page import Mainpage
 import urllib.parse as urlparse
-from datetime import datetime, timedelta
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from datastorage import *
 import time
 
@@ -23,6 +24,10 @@ def step_impl(context):
 @When('I search for "{text}" in graph search bar')
 def step_impl(context, text):
     context.mainpage.search(text)
+
+@When('I search for "{text}" in graph search bar and select the result')
+def step_impl(context, text):
+    context.mainpage.search_and_select(text)
 
 @When('I select "{period}" period')
 def step_impl(context, period):
@@ -61,12 +66,12 @@ def step_impl(context):
     netloc = parsed.netloc
     params = urlparse.parse_qs(parsed.query)
     metrics_link = params['metrics'][0].split(',')
-    metrics_page = [metrics[metric.name][1] for metric in context.mainpage.state['active_metrics']]
-    title_page = context.mainpage.get_graph_title()
+    metrics_page = [metrics[metric][1] for metric in context.mainpage.state['active_metrics']]
+    title_page = context.mainpage.get_token_title()
     title_link = params['title'][0]
     date_from_page, date_to_page = context.mainpage.get_from_to_dates()
-    date_from_page_corrected = date_from_page - timedelta(days=1)
-    date_to_page_corrected = date_to_page - timedelta(days=1)
+    date_from_page_corrected = date_from_page - relativedelta(days=1)
+    date_to_page_corrected = date_to_page - relativedelta(days=1)
     date_from_page_converted = datetime.strftime(date_from_page_corrected, '%Y-%m-%d')
     date_to_page_converted = datetime.strftime(date_to_page_corrected, '%Y-%m-%d')
     date_from_link = params['from'][0].split('T')[0]

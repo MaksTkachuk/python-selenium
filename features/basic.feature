@@ -52,23 +52,24 @@ Feature: basic stuff
 
  Scenario Outline: Verify Link
     Given I load Santiment stage page
-    When I search for "<token>" in graph search bar
+    When I search for "<token>" in graph search bar and select the result
     When I select "1m" period
     When I select "Price" metric
     When I select "Development Activity" metric
     When I select "Volume" metric
     When I deselect "Development Activity" metric
     When I deselect "Twitter" metric
+    When I wait for "3" seconds
     Then I verify that share link contains correct data
 Examples:
 | token |
 | bitcoin |
-| Litecoin |
-| Cardano |
-| Ripple |
-| ChainLink |
-| santiment |
-| Stellar |
-| Tezos |
-| Binance Coin |
-| TRON |
+#| Litecoin |
+#| Cardano |
+#| Ripple |
+#| ChainLink |
+#| santiment |
+#| Stellar |
+#| Tezos |
+#| Binance Coin |
+#| TRON |
