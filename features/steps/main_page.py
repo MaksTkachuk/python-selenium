@@ -123,42 +123,49 @@ class Mainpage:
 
     def get_metrics_menu_element(self):
         selector = selectors["metrics_menu"]
-        return self.get_chart_page_element().find_element_by_css_selector(selector)
+        return self.driver.find_element_by_css_selector(selector)
 
     def get_metrics_categories_element(self):
         selector = selectors["metrics_categories"]
-        return self.get_metrics_menu_element().find_element_by_css_selector(selector)
+        logging.info("Waiting until category list loads")
+        return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+
+    def get_metrics_category_elements(self):
+        xpath = xpaths["metrics_category"]
+        return self.get_metrics_menu_element().find_elements_by_xpath(xpath)
 
     def get_metrics_category_element(self, category):
         logging.info("Getting metrics category element {0}".format(category))
-        xpath = xpaths["metrics_category"].format(category)
-        return self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
+        for element in self.get_metrics_category_elements():
+            if category in element.text:
+                return element
+        raise MissingCategoryException("Category {0} not found for the selected token".format(category))
 
     def select_metrics_category(self, category):
         logging.info("Selecting metrics category {0}".format(category))
-        xpath_active = xpaths["metrics_category"].format(category)
-        try:
-            safe_click(self.get_metrics_category_element(category))
-        except TimeoutException:
-            raise MissingCategoryException("Category {0} not found for the selected token".format(category))
-        self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath_active)))
-
+        xpath = xpaths["metrics_category_active"].format(category)
+        safe_click(self.get_metrics_category_element(category))
+        self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
 
     def get_metrics_list_element(self):
         selector = selectors["metrics_list"]
+        logging.info("Waiting until metrics list loads")
         return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+
+    def get_metric_elements(self):
+        xpath = xpaths["metric"]
+        return self.get_metrics_list_element().find_elements_by_xpath(xpath)
 
     def get_metric_element(self, metric):
         logging.info("Getting metric element {0}".format(metric))
-        xpath = xpaths["metric"].format(metric)
-        try:
-            return self.get_metrics_list_element().find_element_by_xpath(xpath)
-        except NoSuchElementException:
-            raise MissingMetricException("Metric {0} not found for the selected token".format(metric))
+        for element in self.get_metric_elements():
+            if element.text == metric:
+                return element
+        raise MissingMetricException("Metric {0} not found for the selected token".format(metric))
 
     def get_active_metrics_panel_element(self):
         selector = selectors["active_metrics_panel"]
-        return self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+        return self.get_chart_page_element().find_element_by_css_selector(selector)
 
     def get_active_metric_element(self, metric):
         logging.info("Getting active metric element {0}".format(metric))
@@ -173,19 +180,9 @@ class Mainpage:
         if not metric in self.state['active_metrics']:
             self.open_metrics_menu()
             xpath = xpaths["active_metric"].format(metric)
-            try:
-                self.select_metrics_category(metrics[metric][0])
-            except MissingCategoryException:
-                logging.info("No such category for the selected token")
-                self.close_metrics_menu()
-                return
-            try:
-                metric_element = self.get_metric_element(metric)
-                safe_click(metric_element)
-            except MissingMetricException:
-                logging.info("No such metric for the selected token")
-                self.close_metrics_menu()
-                return
+            self.select_metrics_category(metrics[metric][0])
+            metric_element = self.get_metric_element(metric)
+            safe_click(metric_element)
             self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
             self.state['active_metrics'].append(metric)
             self.close_metrics_menu()
@@ -204,9 +201,6 @@ class Mainpage:
         for metric in self.state['active_metrics']:
             self.deselect_metric(metric)
         logging.info("{0} metrics left after removal".format(len(self.state['active_metrics'])))
-
-    def get_share_button(self):
-        return self.get_chart_page_element().find_element_by_css_selector('button.ShareBtn_btn__aWeOd')
 
     def get_share_dialog(self):
         selector = selectors["share_dialog"]
@@ -279,7 +273,7 @@ class Mainpage:
 
     def get_metrics_menu_element(self):
         selector = selectors["metrics_menu"]
-        return self.get_chart_page_element().find_element_by_css_selector(selector)
+        return self.driver.find_element_by_css_selector(selector)
 
     def get_metrics_menu_button(self):
         selector = selectors["metrics_menu_button"]
@@ -291,18 +285,18 @@ class Mainpage:
 
     def open_metrics_menu(self):
         logging.info("Opening metrics menu")
-        selector = selectors["metrics_menu"]
+        xpath = xpaths["metric"]
         try:
             self.get_metrics_menu_element()
             logging.info("Already opened")
         except NoSuchElementException:
             safe_click(self.get_metrics_menu_button())
-            self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+            self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
             logging.info("Menu opened")
 
     def close_metrics_menu(self):
         logging.info("Closing metrics menu")
-        selector = selectors["metrics_menu"]
+        selector = selectors["metrics_menu_title"]
         try:
             safe_click(self.get_modal_overlay())
             self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, selector)))

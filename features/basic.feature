@@ -59,7 +59,6 @@ Feature: basic stuff
     When I select "Volume" metric
     When I deselect "Development Activity" metric
     When I deselect "Twitter" metric
-    When I wait for "3" seconds
     Then I verify that share link contains correct data
 Examples:
 | token |
